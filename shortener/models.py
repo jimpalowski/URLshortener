@@ -1,31 +1,55 @@
-import random
-import string
+from django.conf import settings
 from django.db import models
 
 # Create your models here.
 
-def code_generator(size=6, chars=string.ascii_lowercase + string.digits):
-	###new_code = ''
-	#for x in range(size):
-		#new_code += random.choic(chars)
-	#return new_code	
-	return ''.join(random.choice(chars) for x in range(size))
+from .utils import code_generator, create_shortcode
+
+
+SHORTCODE_MAX = getattr(settings, "SHORTCODE_MAX", 15)
+
+
+
+class KirrURLManager(models.Manager):
+	def all(self, *args, **kwargs):
+		qs_main = super()
+		qs = qs_main.filter(active=False)
+		return qs
+
+	def refresh_shortcodes(self, items=100):
+		qs = KirrURL.objects.filter(id__gte=1)
+		if items is not None and isinstance(items, int):
+			qs = qs.order_by('-id')[:items]
+
+		new_codes = 0
+		for q in qs:
+			q.shortcode = create_shortcode(q)
+			print(q.id)
+			q.save()
+			new_codes +=1
+		return "New codes made: {i}".format(i=new_codes)
 
 
 class KirrURL(models.Model):
 	url = models.CharField(max_length=220,)
-	shortcode = models.CharField(max_length=15, unique=True)
+	shortcode = models.CharField(max_length=SHORTCODE_MAX, unique=True, blank=True)
 	updated = models.DateTimeField(auto_now=True)#everytime the model is saved
 	timestap = models.DateTimeField(auto_now_add=True)#when model was created
+	active  = models.BooleanField(default=True)
 	#empty_datetime = models.DateTimeField(auto_now=False, auto_now_add=False)
 	#shortcode = models.CharField(max_length=15, null=True) Empty in database is okay
 	#shortcode = models.CharField(max_length=15, default='mantisdefaultshortcode')
-	
+	objects = KirrURLManager()
+
+	some_random = KirrURLManager()
 
 	def save(self, *args, **kwargs):
-		print("something")
-		self.shortcode = code_generator()
+		if self.shortcode is None or self.shortcode == "":
+			self.shortcode = create_shortcode(self)
 		super(KirrURL, self).save(*args, **kwargs)
+
+	#class Meta:
+	#	ordering ='-id'
 
 
 	def __str__(self):
