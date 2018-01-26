@@ -3,7 +3,10 @@ from django.db import models
 
 # Create your models here.
 
+
+
 from .utils import code_generator, create_shortcode
+from .validators import validate_url, validate_dot_com
 
 
 SHORTCODE_MAX = getattr(settings, "SHORTCODE_MAX", 15)
@@ -12,15 +15,14 @@ SHORTCODE_MAX = getattr(settings, "SHORTCODE_MAX", 15)
 
 class KirrURLManager(models.Manager):
 	def all(self, *args, **kwargs):
-		qs_main = super()
-		qs = qs_main.filter(active=False)
+		qs_main = super(KirrURLManager, self).all(*args, **kwargs)
+		qs = qs_main.filter(active=True)
 		return qs
 
-	def refresh_shortcodes(self, items=100):
+	def refresh_shortcodes(self, items=None):
 		qs = KirrURL.objects.filter(id__gte=1)
 		if items is not None and isinstance(items, int):
 			qs = qs.order_by('-id')[:items]
-
 		new_codes = 0
 		for q in qs:
 			q.shortcode = create_shortcode(q)
@@ -31,7 +33,7 @@ class KirrURLManager(models.Manager):
 
 
 class KirrURL(models.Model):
-	url = models.CharField(max_length=220,)
+	url = models.CharField(max_length=220, validators=[validate_url, validate_dot_com])
 	shortcode = models.CharField(max_length=SHORTCODE_MAX, unique=True, blank=True)
 	updated = models.DateTimeField(auto_now=True)#everytime the model is saved
 	timestap = models.DateTimeField(auto_now_add=True)#when model was created
